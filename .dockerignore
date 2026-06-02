@@ -1,0 +1,26 @@
+# Build output (rebuilt in container)
+build/
+.dart_tool/
+
+# Flutter generated
+.flutter-plugins-dependencies
+.flutter-plugins
+
+# Platform-specific (web-only Docker build)
+android/
+ios/
+macos/
+linux/
+windows/
+
+# Development
+*.iml
+.idea/
+.metadata
+
+# Git
+.git/
+.gitignore
+
+# Tests (not needed in production image)
+test/
