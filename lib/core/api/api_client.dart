@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:proxima/core/config/app_config.dart';
 import 'package:proxima/core/auth/token_storage.dart';
@@ -42,6 +43,20 @@ class ApiClient {
     final body = <String, dynamic>{'username': username, 'password': password};
     if (mfaCode != null) body['mfaCode'] = mfaCode;
     final res = await _dio.post('/auth/login', data: body);
+    return res.data as Map<String, dynamic>;
+  }
+
+  /// Deuxième étape MFA via mfaSessionToken.
+  /// Le backend doit exposer POST /auth/login/mfa acceptant {mfaSessionToken, mfaCode}.
+  /// En attendant cette adaptation backend, ce endpoint retournera 404.
+  /// Voir CORRECTIONS.md — Actions manuelles requises (backend MFA session token).
+  Future<Map<String, dynamic>> loginWithMfaToken({
+    required String? mfaSessionToken,
+    required String mfaCode,
+  }) async {
+    final body = <String, dynamic>{'mfaCode': mfaCode};
+    if (mfaSessionToken != null) body['mfaSessionToken'] = mfaSessionToken;
+    final res = await _dio.post('/auth/login/mfa', data: body);
     return res.data as Map<String, dynamic>;
   }
 
@@ -265,9 +280,15 @@ class ApiClient {
 
   // ── Accounting : Balance ──────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getGeneralBalance(String fyId) async {
-    final res = await _dio.get('/accounting/balance/general', queryParameters: {'fiscalYearId': fyId});
-    return res.data as Map<String, dynamic>;
+  Future<Map<String, dynamic>> getGeneralBalance({required String from, required String to}) async {
+    final res = await _dio.get('/accounting/balance/general', queryParameters: {'from': from, 'to': to});
+    // Le backend renvoie un tableau (BalanceRow[]). On le normalise en {accounts: [...]}
+    // pour rester cohérent avec l'UI (ledger_balance_tab attend data['accounts']).
+    final data = res.data;
+    if (data is List) {
+      return {'accounts': data};
+    }
+    return data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> getAgedClientsBalance() async {
@@ -295,18 +316,18 @@ class ApiClient {
 
   // ── Accounting : Statements ───────────────────────────────────────
 
-  Future<Map<String, dynamic>> getBalanceSheet(String fyId) async {
-    final res = await _dio.get('/accounting/statements/balance-sheet', queryParameters: {'fiscalYearId': fyId});
+  Future<Map<String, dynamic>> getBalanceSheet({required String from, required String to}) async {
+    final res = await _dio.get('/accounting/statements/balance-sheet', queryParameters: {'from': from, 'to': to});
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getIncomeStatement(String fyId) async {
-    final res = await _dio.get('/accounting/statements/income-statement', queryParameters: {'fiscalYearId': fyId});
+  Future<Map<String, dynamic>> getIncomeStatement({required String from, required String to}) async {
+    final res = await _dio.get('/accounting/statements/income-statement', queryParameters: {'from': from, 'to': to});
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getCashFlow(String fyId) async {
-    final res = await _dio.get('/accounting/statements/cash-flow', queryParameters: {'fiscalYearId': fyId});
+  Future<Map<String, dynamic>> getCashFlow({required String from, required String to}) async {
+    final res = await _dio.get('/accounting/statements/cash-flow', queryParameters: {'from': from, 'to': to});
     return res.data as Map<String, dynamic>;
   }
 
@@ -328,12 +349,18 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> saveTvaReturn(int year, int month) async {
-    final res = await _dio.post('/accounting/tax-returns/tva/save', data: {'year': year, 'month': month});
+    final res = await _dio.post(
+      '/accounting/tax-returns/tva/save',
+      queryParameters: {'year': year.toString(), 'month': month.toString()},
+    );
     return res.data as Map<String, dynamic>;
   }
 
-  Future<void> submitTvaReturn(String id) async {
-    await _dio.post('/accounting/tax-returns/tva/submit', data: {'id': id});
+  Future<void> submitTvaReturn(int year, int month) async {
+    await _dio.post(
+      '/accounting/tax-returns/tva/submit',
+      queryParameters: {'year': year.toString(), 'month': month.toString()},
+    );
   }
 
   Future<Map<String, dynamic>> getIprReturn(int year, int month) async {
@@ -817,8 +844,13 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> importBankStatement(String bankId, List<int> fileBytes, String fileName) async {
-    final formData = {'file': fileBytes};
-    final res = await _dio.post('/treasury/bank/$bankId/import', data: formData);
+    // Le backend attend csvContent comme string UTF-8 dans le body JSON (ImportBankStatementDto)
+    final csvContent = const Utf8Decoder().convert(fileBytes);
+    final res = await _dio.post(
+      '/treasury/bank/$bankId/import',
+      data: {'csvContent': csvContent, 'fileName': fileName},
+      options: Options(contentType: 'application/json'),
+    );
     return res.data as Map<String, dynamic>;
   }
 
@@ -862,7 +894,13 @@ class ApiClient {
   Future<List<dynamic>> getCashTransactions(String cashId, {String? from}) async {
     final p = from != null ? {'from': from} : null;
     final res = await _dio.get('/treasury/cash/$cashId/transactions', queryParameters: p);
-    return res.data as List<dynamic>;
+    // Le backend renvoie {register, openingBalance, transactions: [...], closingBalance}.
+    // On extrait la liste des transactions (tolère aussi un array brut).
+    final data = res.data;
+    if (data is Map<String, dynamic>) {
+      return (data['transactions'] as List<dynamic>?) ?? <dynamic>[];
+    }
+    return data as List<dynamic>;
   }
 
   // ── Treasury : Mobile Money ────────────────────────────────────────
@@ -1135,8 +1173,8 @@ class ApiClient {
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getDgiReportZ(String date) async {
-    final res = await _dio.get('/reports/dgi/z', queryParameters: {'date': date});
+  Future<Map<String, dynamic>> getDgiReportZ(int year, int month) async {
+    final res = await _dio.get('/reports/dgi/z', queryParameters: {'year': year.toString(), 'month': month.toString()});
     return res.data as Map<String, dynamic>;
   }
 
@@ -1155,7 +1193,7 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> generateLiasseFiscale(String fiscalYearId) async {
-    final res = await _dio.post('/reports/liasse-fiscale', data: {'fiscalYearId': fiscalYearId});
+    final res = await _dio.post('/reports/liasse-fiscale', queryParameters: {'fiscalYearId': fiscalYearId});
     return res.data as Map<String, dynamic>;
   }
 
@@ -1201,13 +1239,13 @@ class ApiClient {
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getConsolidatedBalanceSheet(String groupId, String fiscalYearPrefix) async {
-    final res = await _dio.get('/consolidation/groups/$groupId/balance-sheet', queryParameters: {'fiscalYearPrefix': fiscalYearPrefix});
+  Future<Map<String, dynamic>> getConsolidatedBalanceSheet(String groupId, String asOf) async {
+    final res = await _dio.get('/consolidation/groups/$groupId/balance-sheet', queryParameters: {'asOf': asOf});
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getConsolidatedIncomeStatement(String groupId, String fiscalYearPrefix) async {
-    final res = await _dio.get('/consolidation/groups/$groupId/income-statement', queryParameters: {'fiscalYearPrefix': fiscalYearPrefix});
+  Future<Map<String, dynamic>> getConsolidatedIncomeStatement(String groupId, String from, String to) async {
+    final res = await _dio.get('/consolidation/groups/$groupId/income-statement', queryParameters: {'from': from, 'to': to});
     return res.data as Map<String, dynamic>;
   }
 
@@ -1248,7 +1286,8 @@ class ApiClient {
   }
 
   Future<void> deleteApprovalWorkflow(String id) async {
-    await _dio.delete('/approvals/workflows/$id');
+    // Corrigé: le backend expose POST /deactivate — pas de DELETE
+    await _dio.post('/approvals/workflows/$id/deactivate');
   }
 
   // ── Approvals : Requests ──────────────────────────────────────────
@@ -1561,8 +1600,9 @@ class ApiClient {
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getEmcfTvaReconciliation(String from, String to) async {
-    final res = await _dio.get('/emcf/compliance/tva-reconciliation', queryParameters: {'from': from, 'to': to});
+  Future<Map<String, dynamic>> getEmcfTvaReconciliation(int year, int month) async {
+    final res = await _dio.get('/emcf/compliance/tva-reconciliation',
+        queryParameters: {'year': year.toString(), 'month': month.toString()});
     return res.data as Map<String, dynamic>;
   }
 
@@ -1571,9 +1611,15 @@ class ApiClient {
     return res.data as List<dynamic>;
   }
 
-  Future<String> getEmcfComplianceExportUrl(String from, String to) {
-    final base = _dio.options.baseUrl.replaceAll(RegExp(r'/$'), '');
-    return Future.value('$base/emcf/compliance/export-csv?from=$from&to=$to');
+  /// Télécharge le CSV de conformité e-MCF via Dio (avec token JWT dans le header).
+  /// Remplace getEmcfComplianceExportUrl qui construisait une URL sans authentification.
+  Future<List<int>> downloadEmcfComplianceCsv(String from, String to) async {
+    final res = await _dio.get<List<int>>(
+      '/emcf/compliance/export-csv',
+      queryParameters: {'from': from, 'to': to},
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return res.data ?? [];
   }
 
   // ── Dashboard ─────────────────────────────────────────────────────

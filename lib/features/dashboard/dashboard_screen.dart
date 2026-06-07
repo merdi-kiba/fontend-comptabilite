@@ -7,6 +7,8 @@ import 'package:proxima/core/utils/formatters.dart';
 import 'package:proxima/features/dashboard/dashboard_provider.dart';
 import 'package:proxima/shared/widgets/stat_card.dart';
 
+double _n(dynamic v) => v is num ? v.toDouble() : 0.0;
+
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
@@ -49,13 +51,13 @@ class _DashboardContent extends StatelessWidget {
     final allTime = invoices['allTime'] as Map? ?? {};
     final currentMonth = invoices['currentMonth'] as Map? ?? {};
     final ytd = (accounting['ytd'] as Map?) ?? {};
-    final totalBalance = treasury['totalBalance'] ?? 0;
+    final totalBalance = toDouble(treasury['totalBalance']);
 
-    final caYTD = (ytd['revenue'] as num?)?.toDouble() ?? 0;
-    final chargesYTD = (ytd['expenses'] as num?)?.toDouble() ?? 0;
-    final resultatYTD = (ytd['netIncome'] as num?)?.toDouble() ?? 0;
-    final facturesEnCours = ((allTime['amount'] as Map?)?['outstanding'] as num?)?.toDouble() ?? 0.0;
-    final facturesEnRetard = (allTime['count'] as Map?)?['overdue'] as num? ?? 0;
+    final caYTD = _n(ytd['revenue']);
+    final chargesYTD = _n(ytd['expenses']);
+    final resultatYTD = _n(ytd['netIncome']);
+    final facturesEnCours = _n((allTime['amount'] as Map?)?['outstanding']);
+    final facturesEnRetard = _n((allTime['count'] as Map?)?['overdue']);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -91,7 +93,7 @@ class _DashboardContent extends StatelessWidget {
             ),
             StatCard(
               label: 'Trésorerie',
-              value: Fmt.currency((totalBalance as num?)?.toDouble() ?? 0.0),
+              value: Fmt.currency(totalBalance),
               icon: Icons.savings_outlined,
               iconColor: AppColors.primary,
               iconBg: AppColors.primary.withValues(alpha: 0.1),
@@ -432,7 +434,7 @@ class _LoadingLayout extends StatelessWidget {
             childAspectRatio: isDesktop ? 1.6 : 1.3,
           ),
           itemCount: 4,
-          itemBuilder: (_, __) => const StatCardShimmer(),
+          itemBuilder: (context, i) => const StatCardShimmer(),
         ),
       ],
     );

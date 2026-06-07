@@ -179,19 +179,18 @@ class _GeneralBalanceView extends ConsumerStatefulWidget {
 }
 
 class _GeneralBalanceViewState extends ConsumerState<_GeneralBalanceView> {
-  String? _fyId;
+  DateTime _from = DateTime(DateTime.now().year, 1, 1);
+  DateTime _to   = DateTime(DateTime.now().year, 12, 31);
   Map<String, dynamic>? _data;
   bool _loading = false;
-  final _fyCtrl = TextEditingController();
-
-  @override
-  void dispose() { _fyCtrl.dispose(); super.dispose(); }
 
   Future<void> _load() async {
-    if (_fyId == null || _fyId!.isEmpty) return;
     setState(() => _loading = true);
     try {
-      final r = await ref.read(apiClientProvider).getGeneralBalance(_fyId!);
+      final r = await ref.read(apiClientProvider).getGeneralBalance(
+        from: _from.toIso8601String().substring(0, 10),
+        to:   _to.toIso8601String().substring(0, 10),
+      );
       setState(() => _data = r);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(parseError(e)), backgroundColor: AppColors.negative));
@@ -208,11 +207,9 @@ class _GeneralBalanceViewState extends ConsumerState<_GeneralBalanceView> {
       child: Column(
         children: [
           Row(children: [
-            Expanded(child: TextFormField(
-              controller: _fyCtrl,
-              decoration: const InputDecoration(labelText: 'ID Exercice fiscal', isDense: true),
-              onChanged: (v) => _fyId = v.trim(),
-            )),
+            Expanded(child: _DateBtn('Du', _from, (d) => setState(() => _from = d))),
+            const SizedBox(width: 8),
+            Expanded(child: _DateBtn('Au', _to,   (d) => setState(() => _to   = d))),
             const SizedBox(width: 8),
             ElevatedButton(onPressed: _loading ? null : _load, child: const Text('Charger')),
           ]),

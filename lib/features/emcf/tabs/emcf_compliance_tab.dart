@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:proxima/core/utils/error_utils.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:proxima/core/auth/auth_provider.dart';
 import 'package:proxima/core/theme/app_theme.dart';
@@ -204,8 +206,8 @@ class _TvaReconciliationCardState extends ConsumerState<_TvaReconciliationCard> 
     setState(() { _loading = true; _error = null; });
     try {
       final r = await ref.read(apiClientProvider).getEmcfTvaReconciliation(
-        widget.from.toIso8601String().substring(0, 10),
-        widget.to.toIso8601String().substring(0, 10),
+        widget.from.year,
+        widget.from.month,
       );
       setState(() => _data = r);
     } catch (e) {
@@ -429,14 +431,24 @@ class _ExportCsvCard extends ConsumerStatefulWidget {
 
 class _ExportCsvCardState extends ConsumerState<_ExportCsvCard> {
   bool _loading = false;
-  String? _url;
+  String? _savedPath;
+  String? _error;
 
   Future<void> _export() async {
-    setState(() { _loading = true; _url = null; });
-    final fromStr = widget.from.toIso8601String().substring(0, 10);
-    final toStr = widget.to.toIso8601String().substring(0, 10);
-    final url = await ref.read(apiClientProvider).getEmcfComplianceExportUrl(fromStr, toStr);
-    setState(() { _loading = false; _url = url; });
+    setState(() { _loading = true; _savedPath = null; _error = null; });
+    try {
+      final fromStr = widget.from.toIso8601String().substring(0, 10);
+      final toStr   = widget.to.toIso8601String().substring(0, 10);
+      final bytes = await ref.read(apiClientProvider).downloadEmcfComplianceCsv(fromStr, toStr);
+      final fileName = 'emcf_export_${fromStr}_$toStr.csv';
+      final file = File('${Directory.systemTemp.path}/$fileName');
+      await file.writeAsBytes(bytes);
+      setState(() => _savedPath = file.path);
+    } catch (e) {
+      setState(() => _error = parseError(e));
+    } finally {
+      setState(() => _loading = false);
+    }
   }
 
   @override
@@ -456,9 +468,23 @@ class _ExportCsvCardState extends ConsumerState<_ExportCsvCard> {
                 const Text('Export CSV logs DGI', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                 Text('${Fmt.date(widget.from)} → ${Fmt.date(widget.to)}',
                   style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                if (_url != null) ...[
+                if (_savedPath != null) ...[
                   const SizedBox(height: 4),
-                  SelectableText(_url!, style: const TextStyle(fontSize: 11, color: AppColors.primary)),
+                  Row(children: [
+                    Expanded(child: SelectableText(_savedPath!,
+                      style: const TextStyle(fontSize: 11, color: AppColors.positive))),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 14),
+                      tooltip: 'Copier le chemin',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => Clipboard.setData(ClipboardData(text: _savedPath!)),
+                    ),
+                  ]),
+                ],
+                if (_error != null) ...[
+                  const SizedBox(height: 4),
+                  Text(_error!, style: const TextStyle(fontSize: 11, color: AppColors.negative)),
                 ],
               ],
             )),

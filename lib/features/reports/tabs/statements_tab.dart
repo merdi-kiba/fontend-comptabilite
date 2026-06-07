@@ -12,15 +12,20 @@ final _fyListProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async {
 final _selectedFyProvider = StateProvider.autoDispose<String?>((ref) => null);
 final _selectedStatementProvider = StateProvider.autoDispose<int>((ref) => 0);
 
-final _balanceSheetProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, fyId) async {
-  return ref.watch(apiClientProvider).getBalanceSheet(fyId);
+// Clé de famille : "from|to" (dates ISO). Le backend attend from/to, pas un fyId.
+final _balanceSheetProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, key) async {
+  final p = key.split('|');
+  return ref.watch(apiClientProvider).getBalanceSheet(from: p[0], to: p[1]);
 });
-final _incomeStatementProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, fyId) async {
-  return ref.watch(apiClientProvider).getIncomeStatement(fyId);
+final _incomeStatementProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, key) async {
+  final p = key.split('|');
+  return ref.watch(apiClientProvider).getIncomeStatement(from: p[0], to: p[1]);
 });
-final _cashFlowProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, fyId) async {
-  return ref.watch(apiClientProvider).getCashFlow(fyId);
+final _cashFlowProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, key) async {
+  final p = key.split('|');
+  return ref.watch(apiClientProvider).getCashFlow(from: p[0], to: p[1]);
 });
+// TAFIRE utilise toujours l'ID d'exercice (route /accounting/tafire/:id)
 final _tafireProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, fyId) async {
   return ref.watch(apiClientProvider).getTafire(fyId);
 });
@@ -90,12 +95,21 @@ class StatementsTab extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text(parseError(e), style: const TextStyle(color: AppColors.negative))),
         data: (fys) {
-          final fyId = selectedFyId ?? (fys.isNotEmpty ? (fys.first as Map)['id'] as String? : null);
-          if (fyId == null) return const Center(child: Text('Créez un exercice fiscal d\'abord'));
+          if (fys.isEmpty) return const Center(child: Text('Créez un exercice fiscal d\'abord'));
+          final fy = (selectedFyId != null
+            ? fys.firstWhere((f) => (f as Map)['id'] == selectedFyId, orElse: () => fys.first)
+            : fys.first) as Map<String, dynamic>;
+          final fyId    = fy['id'] as String;
+          // Dates de l'exercice → from/to pour les endpoints qui en ont besoin
+          final rawFrom = fy['startDate'] as String? ?? '${DateTime.now().year}-01-01';
+          final rawTo   = fy['endDate']   as String? ?? '${DateTime.now().year}-12-31';
+          final from = rawFrom.length >= 10 ? rawFrom.substring(0, 10) : rawFrom;
+          final to   = rawTo.length   >= 10 ? rawTo.substring(0, 10)   : rawTo;
+          final periodKey = '$from|$to';
           switch (statIdx) {
-            case 0: return _BalanceSheetView(fyId: fyId);
-            case 1: return _IncomeStatementView(fyId: fyId);
-            case 2: return _CashFlowView(fyId: fyId);
+            case 0: return _BalanceSheetView(periodKey: periodKey);
+            case 1: return _IncomeStatementView(periodKey: periodKey);
+            case 2: return _CashFlowView(periodKey: periodKey);
             case 3: return _TafireView(fyId: fyId);
             default: return const SizedBox();
           }
@@ -108,12 +122,12 @@ class StatementsTab extends ConsumerWidget {
 // ── Balance sheet ─────────────────────────────────────────────────────────────
 
 class _BalanceSheetView extends ConsumerWidget {
-  final String fyId;
-  const _BalanceSheetView({required this.fyId});
+  final String periodKey;
+  const _BalanceSheetView({required this.periodKey});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(_balanceSheetProvider(fyId));
+    final data = ref.watch(_balanceSheetProvider(periodKey));
     return data.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text(parseError(e), style: const TextStyle(color: AppColors.negative))),
@@ -208,12 +222,12 @@ class _FinancialSection extends StatelessWidget {
 // ── Income statement ──────────────────────────────────────────────────────────
 
 class _IncomeStatementView extends ConsumerWidget {
-  final String fyId;
-  const _IncomeStatementView({required this.fyId});
+  final String periodKey;
+  const _IncomeStatementView({required this.periodKey});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(_incomeStatementProvider(fyId));
+    final data = ref.watch(_incomeStatementProvider(periodKey));
     return data.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text(parseError(e), style: const TextStyle(color: AppColors.negative))),
@@ -261,12 +275,12 @@ class _IncomeStatementView extends ConsumerWidget {
 // ── Cash flow ─────────────────────────────────────────────────────────────────
 
 class _CashFlowView extends ConsumerWidget {
-  final String fyId;
-  const _CashFlowView({required this.fyId});
+  final String periodKey;
+  const _CashFlowView({required this.periodKey});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(_cashFlowProvider(fyId));
+    final data = ref.watch(_cashFlowProvider(periodKey));
     return data.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text(parseError(e), style: const TextStyle(color: AppColors.negative))),

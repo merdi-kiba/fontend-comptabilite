@@ -162,7 +162,7 @@ class _ExpCard extends StatelessWidget {
     final status = claim['status'] as String? ?? 'DRAFT';
     final empName = claim['employeeName'] as String? ?? '—';
     final category = claim['category'] as String? ?? 'AUTRE';
-    final amount = (claim['amount'] as num?)?.toDouble() ?? 0;
+    final amount = toDouble(claim['amount']);
     final currency = claim['currency'] as String? ?? 'CDF';
     final desc = claim['description'] as String? ?? '—';
     final date = (claim['date'] as String? ?? '').substring(0, 10.clamp(0, (claim['date'] as String? ?? '').length));

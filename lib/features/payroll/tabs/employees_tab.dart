@@ -75,7 +75,7 @@ class _EmployeeCard extends StatelessWidget {
     final code = emp['code'] as String? ?? '—';
     final position = emp['position'] as String? ?? '—';
     final dept = emp['department'] as String? ?? '—';
-    final gross = (emp['grossSalary'] as num?)?.toDouble() ?? 0;
+    final gross = toDouble(emp['grossSalary']);
     final isActive = (emp['status'] as String?)?.toUpperCase() != 'INACTIVE';
 
     return Card(
@@ -147,7 +147,7 @@ class _EmployeeDialogState extends ConsumerState<_EmployeeDialog> {
     _lastCtrl = TextEditingController(text: e['lastName'] as String? ?? '');
     _posCtrl = TextEditingController(text: e['position'] as String? ?? '');
     _deptCtrl = TextEditingController(text: e['department'] as String? ?? '');
-    _grossCtrl = TextEditingController(text: '${(e['grossSalary'] as num?)?.toInt() ?? ''}');
+    _grossCtrl = TextEditingController(text: '${toDouble(e['grossSalary']).toInt()}');
     _cnssCtrl = TextEditingController(text: e['cnssNumber'] as String? ?? '');
     _cinCtrl = TextEditingController(text: e['cin'] as String? ?? '');
     _bankCtrl = TextEditingController(text: e['bankAccountNum'] as String? ?? '');

@@ -373,7 +373,7 @@ class _RequestPaymentDialogState extends ConsumerState<_RequestPaymentDialog> {
         'amount': amount,
         'currency': _currency,
         'description': _descCtrl.text.trim(),
-        if (_refCtrl.text.isNotEmpty) 'internalRef': _refCtrl.text.trim(),
+        if (_refCtrl.text.isNotEmpty) 'invoiceId': _refCtrl.text.trim(),
       });
       widget.onDone();
       if (mounted) {
@@ -410,7 +410,7 @@ class _RequestPaymentDialogState extends ConsumerState<_RequestPaymentDialog> {
         const SizedBox(height: 10),
         TextFormField(controller: _descCtrl, decoration: const InputDecoration(labelText: 'Description')),
         const SizedBox(height: 10),
-        TextFormField(controller: _refCtrl, decoration: const InputDecoration(labelText: 'Référence interne')),
+        TextFormField(controller: _refCtrl, decoration: const InputDecoration(labelText: 'N° Facture (optionnel)')),
         if (_error != null) ...[const SizedBox(height: 8), Text(_error!, style: const TextStyle(color: AppColors.negative, fontSize: 12))],
       ])),
       actions: [
@@ -459,7 +459,7 @@ class _DisburseDialogState extends ConsumerState<_DisburseDialog> {
         'amount': amount,
         'currency': _currency,
         'description': _descCtrl.text.trim(),
-        if (_refCtrl.text.isNotEmpty) 'internalRef': _refCtrl.text.trim(),
+        if (_refCtrl.text.isNotEmpty) 'invoiceId': _refCtrl.text.trim(),
       });
       widget.onDone();
       if (mounted) {
@@ -496,7 +496,7 @@ class _DisburseDialogState extends ConsumerState<_DisburseDialog> {
         const SizedBox(height: 10),
         TextFormField(controller: _descCtrl, decoration: const InputDecoration(labelText: 'Motif')),
         const SizedBox(height: 10),
-        TextFormField(controller: _refCtrl, decoration: const InputDecoration(labelText: 'Référence interne')),
+        TextFormField(controller: _refCtrl, decoration: const InputDecoration(labelText: 'N° Facture (optionnel)')),
         if (_error != null) ...[const SizedBox(height: 8), Text(_error!, style: const TextStyle(color: AppColors.negative, fontSize: 12))],
       ])),
       actions: [

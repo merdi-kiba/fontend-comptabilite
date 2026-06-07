@@ -1,5 +1,16 @@
 import 'package:intl/intl.dart';
 
+/// Convertit en double tout champ API qui peut être num OU Map (multi-devises).
+double toDouble(dynamic v, {String currency = 'CDF'}) {
+  if (v is num) return v.toDouble();
+  if (v is Map) {
+    final direct = v[currency];
+    if (direct is num) return direct.toDouble();
+    return v.values.whereType<num>().fold<double>(0, (s, n) => s + n.toDouble());
+  }
+  return 0.0;
+}
+
 class Fmt {
   // Devise CDF avec séparateurs
   static String currency(num amount, {String symbol = 'CDF', int decimals = 0}) {

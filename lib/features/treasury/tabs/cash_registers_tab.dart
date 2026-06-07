@@ -92,7 +92,7 @@ class _CashCard extends StatelessWidget {
     final name = register['name'] as String? ?? '—';
     final code = register['code'] as String? ?? '—';
     final isOpen = register['isOpen'] as bool? ?? false;
-    final balance = (register['currentBalance'] as num?)?.toDouble() ?? 0;
+    final balance = toDouble(register['currentBalance']);
     final currency = register['currency'] as String? ?? 'CDF';
 
     return Card(
@@ -199,23 +199,29 @@ class _AddCashTxDialogState extends ConsumerState<_AddCashTxDialog> {
   final _descCtrl = TextEditingController();
   final _amtCtrl = TextEditingController();
   final _refCtrl = TextEditingController();
-  String _direction = 'IN';
+  final _counterpartCtrl = TextEditingController(text: '411');
+  String _type = 'DEPOSIT';
   bool _loading = false;
   String? _error;
 
   @override
-  void dispose() { _descCtrl.dispose(); _amtCtrl.dispose(); _refCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _descCtrl.dispose(); _amtCtrl.dispose();
+    _refCtrl.dispose(); _counterpartCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _submit() async {
     final amount = double.tryParse(_amtCtrl.text);
-    if (amount == null || _descCtrl.text.isEmpty) return;
+    if (amount == null || _descCtrl.text.isEmpty || _counterpartCtrl.text.isEmpty) return;
     setState(() { _loading = true; _error = null; });
     try {
       await ref.read(apiClientProvider).addCashTransaction(widget.cashId, {
+        'type': _type,
         'date': DateTime.now().toIso8601String().substring(0, 10),
         'description': _descCtrl.text.trim(),
         'amount': amount,
-        'direction': _direction,
+        'counterpartAccountCode': _counterpartCtrl.text.trim(),
         if (_refCtrl.text.isNotEmpty) 'reference': _refCtrl.text.trim(),
       });
       widget.onAdded();
@@ -230,21 +236,26 @@ class _AddCashTxDialogState extends ConsumerState<_AddCashTxDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Transaction caisse', style: TextStyle(fontWeight: FontWeight.w700)),
+      title: const Text('Nouvelle transaction', style: TextStyle(fontWeight: FontWeight.w700)),
       content: SizedBox(width: 360, child: Column(mainAxisSize: MainAxisSize.min, children: [
         SegmentedButton<String>(
           segments: const [
-            ButtonSegment(value: 'IN', label: Text('Encaissement'), icon: Icon(Icons.arrow_downward, size: 14)),
-            ButtonSegment(value: 'OUT', label: Text('Décaissement'), icon: Icon(Icons.arrow_upward, size: 14)),
+            ButtonSegment(value: 'DEPOSIT', label: Text('Entrée'), icon: Icon(Icons.arrow_downward, size: 14)),
+            ButtonSegment(value: 'WITHDRAWAL', label: Text('Sortie'), icon: Icon(Icons.arrow_upward, size: 14)),
           ],
-          selected: {_direction},
-          onSelectionChanged: (s) => setState(() => _direction = s.first),
+          selected: {_type},
+          onSelectionChanged: (s) => setState(() {
+            _type = s.first;
+            _counterpartCtrl.text = _type == 'DEPOSIT' ? '411' : '401';
+          }),
           style: const ButtonStyle(visualDensity: VisualDensity.compact),
         ),
         const SizedBox(height: 12),
         TextFormField(controller: _descCtrl, decoration: const InputDecoration(labelText: 'Description *')),
         const SizedBox(height: 10),
         TextFormField(controller: _amtCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Montant *', suffixText: 'CDF')),
+        const SizedBox(height: 10),
+        TextFormField(controller: _counterpartCtrl, decoration: const InputDecoration(labelText: 'Compte contrepartie *', hintText: '411, 401, 601...')),
         const SizedBox(height: 10),
         TextFormField(controller: _refCtrl, decoration: const InputDecoration(labelText: 'Référence')),
         if (_error != null) ...[const SizedBox(height: 8), Text(_error!, style: const TextStyle(color: AppColors.negative, fontSize: 12))],
@@ -299,9 +310,9 @@ class _CashHistoryDialogState extends ConsumerState<_CashHistoryDialog> {
                     separatorBuilder: (_, i) => const Divider(height: 1),
                     itemBuilder: (_, i) {
                       final tx = _txs[i] as Map<String, dynamic>;
-                      final dir = tx['direction'] as String? ?? 'IN';
+                      final type = tx['type'] as String? ?? 'DEPOSIT';
                       final amount = (tx['amount'] as num?)?.toDouble() ?? 0;
-                      final isIn = dir == 'IN';
+                      final isIn = type == 'DEPOSIT';
                       return ListTile(
                         dense: true,
                         leading: Icon(isIn ? Icons.arrow_downward : Icons.arrow_upward,

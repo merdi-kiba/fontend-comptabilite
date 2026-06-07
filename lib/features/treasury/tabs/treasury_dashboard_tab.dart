@@ -69,7 +69,7 @@ class TreasuryDashboardTab extends ConsumerWidget {
                         children: balances.map((b) {
                           final m = b as Map<String, dynamic>;
                           final name = m['name'] as String? ?? m['bankName'] as String? ?? '—';
-                          final balance = (m['balance'] as num?)?.toDouble() ?? 0;
+                          final balance = toDouble(m['balance']);
                           final currency = m['currency'] as String? ?? 'CDF';
                           final type = m['type'] as String? ?? 'BANK';
                           return Padding(
@@ -115,9 +115,9 @@ class _DashKpis extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bankBalance = (data['bankBalance'] as num?)?.toDouble() ?? 0;
-    final cashBalance = (data['cashBalance'] as num?)?.toDouble() ?? 0;
-    final totalBalance = (data['totalBalance'] as num?)?.toDouble() ?? (bankBalance + cashBalance);
+    final bankBalance = toDouble(data['bankBalance']);
+    final cashBalance = toDouble(data['cashBalance']);
+    final totalBalance = toDouble(data['totalBalance']) > 0 ? toDouble(data['totalBalance']) : bankBalance + cashBalance;
     final accountCount = data['accountCount'] as num? ?? 0;
 
     return Column(
@@ -186,11 +186,9 @@ class _ForecastCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final inflowsMap = data['inflows'] as Map? ?? {};
     final outflowsMap = data['outflows'] as Map? ?? {};
-    final inflows = (inflowsMap['total'] as num?)?.toDouble()
-        ?? (data['totalInflows'] as num?)?.toDouble() ?? 0;
-    final outflows = (outflowsMap['total'] as num?)?.toDouble()
-        ?? (data['totalOutflows'] as num?)?.toDouble() ?? 0;
-    final net = (data['netCashFlow'] as num?)?.toDouble() ?? (inflows - outflows);
+    final inflows = toDouble(inflowsMap['total']) > 0 ? toDouble(inflowsMap['total']) : toDouble(data['totalInflows']);
+    final outflows = toDouble(outflowsMap['total']) > 0 ? toDouble(outflowsMap['total']) : toDouble(data['totalOutflows']);
+    final net = toDouble(data['netCashFlow']) != 0 ? toDouble(data['netCashFlow']) : inflows - outflows;
 
     return Card(
       child: Padding(

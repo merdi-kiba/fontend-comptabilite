@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:proxima/core/auth/auth_provider.dart';
@@ -19,7 +20,20 @@ import 'package:proxima/features/purchases/purchases_screen.dart';
 import 'package:proxima/features/treasury/treasury_screen.dart';
 import 'package:proxima/shared/layouts/main_layout.dart';
 
+/// Écran de chargement affiché pendant la restauration de session (AuthStatus.unknown).
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
 class AppRoutes {
+  static const splash = '/splash';
   static const login = '/login';
   static const mfa = '/mfa';
   static const forgotPassword = '/forgot-password';
@@ -53,7 +67,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isPasswordRoute = state.matchedLocation == AppRoutes.forgotPassword ||
           state.matchedLocation == AppRoutes.resetPassword;
 
-      if (authState.status == AuthStatus.unknown) return null;
+      // Pendant la restauration de session, afficher l'écran de chargement
+      if (authState.status == AuthStatus.unknown) return AppRoutes.splash;
       // MFA en attente → autoriser seulement /mfa
       if (authState.isMfaPending) return isMfaRoute ? null : AppRoutes.mfa;
       // Non authentifié → autoriser login, forgot, reset
@@ -63,6 +78,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(path: AppRoutes.splash, builder: (context, _) => const _SplashScreen()),
       GoRoute(path: AppRoutes.login, builder: (context, _) => const LoginScreen()),
       GoRoute(path: AppRoutes.mfa, builder: (context, _) => const MfaScreen()),
       GoRoute(path: AppRoutes.forgotPassword, builder: (context, _) => const ForgotPasswordScreen()),

@@ -194,8 +194,8 @@ class _SummaryBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final count = data['employeeCount'] as int? ?? 0;
-    final totalGross = (data['totalGross'] as num?)?.toDouble() ?? 0;
-    final totalNet = (data['totalNet'] as num?)?.toDouble() ?? 0;
+    final totalGross = toDouble(data['totalGross']);
+    final totalNet = toDouble(data['totalNet']);
     final statusMap = data['payslipStatus'] as Map? ?? {};
     final draftCount = statusMap['DRAFT'] as int? ?? 0;
 
@@ -233,10 +233,10 @@ class _PayslipCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = slip['employeeName'] as String? ?? '—';
-    final gross = (slip['grossSalary'] as num?)?.toDouble() ?? 0;
-    final net = (slip['netSalary'] as num?)?.toDouble() ?? 0;
-    final ipr = (slip['ipr'] as num?)?.toDouble() ?? 0;
-    final cnssEmp = (slip['cnssEmployee'] as num?)?.toDouble() ?? 0;
+    final gross = toDouble(slip['grossSalary']);
+    final net = toDouble(slip['netSalary']);
+    final ipr = toDouble(slip['ipr']);
+    final cnssEmp = toDouble(slip['cnssEmployee']);
     final status = slip['status'] as String? ?? 'DRAFT';
     final isPosted = status == 'POSTED';
 

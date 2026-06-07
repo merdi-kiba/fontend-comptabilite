@@ -13,11 +13,11 @@ class AppConfig {
 
   static String get baseUrl {
     if (_envBaseUrl.isNotEmpty) return _envBaseUrl;
-    if (kIsWeb) return 'http://localhost:3000';
+    if (kIsWeb) return 'http://localhost:3030';
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:3000';
+      return 'http://10.0.2.2:3030';
     }
-    return 'http://localhost:3000';
+    return 'http://localhost:3030';
   }
 
   static const Duration connectTimeout = Duration(seconds: 15);

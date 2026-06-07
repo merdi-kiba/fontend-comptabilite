@@ -188,7 +188,7 @@ class _DgiSectionState extends ConsumerState<_DgiSection> {
       Map<String, dynamic> r;
       switch (type) {
         case 'X': r = await ref.read(apiClientProvider).getDgiReportX(DateTime.now().toIso8601String().substring(0, 10)); break;
-        case 'Z': r = await ref.read(apiClientProvider).getDgiReportZ(DateTime.now().toIso8601String().substring(0, 10)); break;
+        case 'Z': r = await ref.read(apiClientProvider).getDgiReportZ(widget.year, widget.month); break;
         case 'P': r = await ref.read(apiClientProvider).getDgiReportP(widget.year, widget.month); break;
         default:  r = await ref.read(apiClientProvider).getDgiReportA(widget.year);
       }

@@ -14,9 +14,13 @@ class AuthState {
   final String? tenantId;
   final String? tenantName;
   final String? error;
-  // Credentials temporaires conservés pendant l'étape MFA
-  final String? mfaPendingUsername;
-  final String? mfaPendingPassword;
+  // Données temporaires pour l'étape MFA
+  // NOTE: le mot de passe en clair (mfaPendingPassword) a été supprimé pour raisons de sécurité.
+  // Le backend doit retourner un `mfaSessionToken` lors du premier appel login (mfaRequired=true).
+  // Si le backend ne retourne pas encore ce token, le flux MFA nécessite une adaptation backend
+  // (voir CORRECTIONS.md — Actions manuelles requises).
+  final String? mfaPendingEmail;
+  final String? mfaSessionToken;
 
   const AuthState({
     this.status = AuthStatus.unknown,
@@ -26,8 +30,8 @@ class AuthState {
     this.tenantId,
     this.tenantName,
     this.error,
-    this.mfaPendingUsername,
-    this.mfaPendingPassword,
+    this.mfaPendingEmail,
+    this.mfaSessionToken,
   });
 
   bool get isAuthenticated => status == AuthStatus.authenticated;
@@ -42,19 +46,20 @@ class AuthState {
     String? tenantId,
     String? tenantName,
     String? error,
-    String? mfaPendingUsername,
-    String? mfaPendingPassword,
-  }) => AuthState(
-    status: status ?? this.status,
-    userId: userId ?? this.userId,
-    email: email ?? this.email,
-    role: role ?? this.role,
-    tenantId: tenantId ?? this.tenantId,
-    tenantName: tenantName ?? this.tenantName,
-    error: error,
-    mfaPendingUsername: mfaPendingUsername ?? this.mfaPendingUsername,
-    mfaPendingPassword: mfaPendingPassword ?? this.mfaPendingPassword,
-  );
+    String? mfaPendingEmail,
+    String? mfaSessionToken,
+  }) =>
+      AuthState(
+        status: status ?? this.status,
+        userId: userId ?? this.userId,
+        email: email ?? this.email,
+        role: role ?? this.role,
+        tenantId: tenantId ?? this.tenantId,
+        tenantName: tenantName ?? this.tenantName,
+        error: error,
+        mfaPendingEmail: mfaPendingEmail ?? this.mfaPendingEmail,
+        mfaSessionToken: mfaSessionToken ?? this.mfaSessionToken,
+      );
 }
 
 // ── Notifier ───────────────────────────────────────────────────────────────────
@@ -93,12 +98,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final data = await _api.login(username, password);
 
-      // MFA requis → conserver les credentials pour l'étape suivante
+      // MFA requis → conserver uniquement l'email et le mfaSessionToken retourné par le backend
+      // Le mot de passe n'est JAMAIS conservé dans le state pour des raisons de sécurité.
       if (data['mfaRequired'] == true) {
+        final mfaSessionToken = data['mfaSessionToken'] as String?;
         state = AuthState(
           status: AuthStatus.mfaPending,
-          mfaPendingUsername: username,
-          mfaPendingPassword: password,
+          mfaPendingEmail: username,
+          // Si le backend ne retourne pas encore mfaSessionToken, ce champ sera null.
+          // Voir CORRECTIONS.md pour l'adaptation backend requise.
+          mfaSessionToken: mfaSessionToken,
         );
         return false;
       }
@@ -115,12 +124,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   // Deuxième étape login avec code TOTP
+  // Utilise le mfaSessionToken retourné par le backend à l'étape 1.
   Future<bool> loginWithMfa(String code) async {
-    final username = state.mfaPendingUsername;
-    final password = state.mfaPendingPassword;
-    if (username == null || password == null) return false;
+    final sessionToken = state.mfaSessionToken;
+    final email = state.mfaPendingEmail;
+    if (email == null) return false;
     try {
-      final data = await _api.login(username, password, mfaCode: code);
+      final data = await _api.loginWithMfaToken(
+        mfaSessionToken: sessionToken,
+        mfaCode: code,
+      );
       await _applyTokens(data);
       return true;
     } catch (e) {

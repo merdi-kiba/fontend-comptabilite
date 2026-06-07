@@ -75,7 +75,7 @@ class _BankCard extends StatelessWidget {
     final name = account['bankName'] as String? ?? account['name'] as String? ?? '—';
     final code = account['code'] as String? ?? '—';
     final num_ = account['accountNumber'] as String? ?? '—';
-    final balance = (account['balance'] as num?)?.toDouble() ?? 0;
+    final balance = toDouble(account['balance']);
     final currency = account['currency'] as String? ?? 'CDF';
 
     return Card(

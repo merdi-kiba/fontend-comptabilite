@@ -14,8 +14,13 @@ class StatementsTab extends ConsumerStatefulWidget {
 
 class _StatementsTabState extends ConsumerState<StatementsTab> with SingleTickerProviderStateMixin {
   late final TabController _inner;
+  // Dates de période pour Bilan, Résultat, Balance
+  DateTime _from = DateTime(DateTime.now().year, 1, 1);
+  DateTime _to   = DateTime(DateTime.now().year, 12, 31);
+  // fyId conservé uniquement pour TAFIRE (route /accounting/tafire/:id)
   String _fyId = '';
-  int _year = DateTime.now().year;
+  // Année/mois pour TVA
+  int _year  = DateTime.now().year;
   int _month = DateTime.now().month;
 
   @override
@@ -27,33 +32,51 @@ class _StatementsTabState extends ConsumerState<StatementsTab> with SingleTicker
   @override
   void dispose() { _inner.dispose(); super.dispose(); }
 
+  String get _fromStr => _from.toIso8601String().substring(0, 10);
+  String get _toStr   => _to.toIso8601String().substring(0, 10);
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Sélecteur exercice + période
+        // Sélecteurs de période
         Container(
           color: Colors.white,
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Row(children: [
-            Expanded(child: TextFormField(
-              decoration: const InputDecoration(labelText: 'ID Exercice', hintText: 'uuid...', isDense: true),
-              onChanged: (v) => setState(() => _fyId = v.trim()),
-            )),
-            const SizedBox(width: 8),
-            SizedBox(width: 70, child: TextFormField(
-              initialValue: '$_year',
-              decoration: const InputDecoration(labelText: 'Année', isDense: true),
-              keyboardType: TextInputType.number,
-              onChanged: (v) => setState(() => _year = int.tryParse(v) ?? _year),
-            )),
-            const SizedBox(width: 8),
-            SizedBox(width: 60, child: TextFormField(
-              initialValue: '$_month',
-              decoration: const InputDecoration(labelText: 'Mois', isDense: true),
-              keyboardType: TextInputType.number,
-              onChanged: (v) => setState(() => _month = int.tryParse(v) ?? _month),
-            )),
+          child: Column(children: [
+            // Ligne 1 : période comptable (Bilan / Résultat / Balance)
+            Row(children: [
+              const Text('Période :', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(width: 8),
+              Expanded(child: _DatePickerField('Du', _from, (d) => setState(() => _from = d))),
+              const SizedBox(width: 8),
+              Expanded(child: _DatePickerField('Au', _to,   (d) => setState(() => _to   = d))),
+            ]),
+            const SizedBox(height: 4),
+            // Ligne 2 : ID exercice (TAFIRE) + Année/Mois (TVA)
+            Row(children: [
+              Expanded(child: TextFormField(
+                decoration: const InputDecoration(
+                  labelText: 'ID Exercice (TAFIRE)', hintText: 'uuid…', isDense: true,
+                  helperText: 'Obligatoire pour l\'onglet TAFIRE',
+                ),
+                onChanged: (v) => setState(() => _fyId = v.trim()),
+              )),
+              const SizedBox(width: 8),
+              SizedBox(width: 72, child: TextFormField(
+                initialValue: '$_year',
+                decoration: const InputDecoration(labelText: 'Année (TVA)', isDense: true),
+                keyboardType: TextInputType.number,
+                onChanged: (v) => setState(() => _year = int.tryParse(v) ?? _year),
+              )),
+              const SizedBox(width: 8),
+              SizedBox(width: 62, child: TextFormField(
+                initialValue: '$_month',
+                decoration: const InputDecoration(labelText: 'Mois', isDense: true),
+                keyboardType: TextInputType.number,
+                onChanged: (v) => setState(() => _month = int.tryParse(v) ?? _month),
+              )),
+            ]),
           ]),
         ),
 
@@ -74,8 +97,8 @@ class _StatementsTabState extends ConsumerState<StatementsTab> with SingleTicker
         Expanded(child: TabBarView(
           controller: _inner,
           children: [
-            _BalanceSheetView(fyId: _fyId),
-            _IncomeStatementView(fyId: _fyId),
+            _BalanceSheetView(from: _fromStr, to: _toStr),
+            _IncomeStatementView(from: _fromStr, to: _toStr),
             _VatReturnView(year: _year, month: _month),
             _TafireView(fyId: _fyId),
           ],
@@ -88,8 +111,9 @@ class _StatementsTabState extends ConsumerState<StatementsTab> with SingleTicker
 // ── Bilan ─────────────────────────────────────────────────────────────────────
 
 class _BalanceSheetView extends ConsumerStatefulWidget {
-  final String fyId;
-  const _BalanceSheetView({required this.fyId});
+  final String from;
+  final String to;
+  const _BalanceSheetView({required this.from, required this.to});
 
   @override
   ConsumerState<_BalanceSheetView> createState() => _BalanceSheetViewState();
@@ -100,10 +124,9 @@ class _BalanceSheetViewState extends ConsumerState<_BalanceSheetView> {
   bool _loading = false;
 
   Future<void> _load() async {
-    if (widget.fyId.isEmpty) return;
     setState(() => _loading = true);
     try {
-      final r = await ref.read(apiClientProvider).getBalanceSheet(widget.fyId);
+      final r = await ref.read(apiClientProvider).getBalanceSheet(from: widget.from, to: widget.to);
       setState(() => _data = r);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(parseError(e)), backgroundColor: AppColors.negative));
@@ -160,8 +183,9 @@ class _BalanceSheetViewState extends ConsumerState<_BalanceSheetView> {
 // ── Compte de résultat ────────────────────────────────────────────────────────
 
 class _IncomeStatementView extends ConsumerStatefulWidget {
-  final String fyId;
-  const _IncomeStatementView({required this.fyId});
+  final String from;
+  final String to;
+  const _IncomeStatementView({required this.from, required this.to});
 
   @override
   ConsumerState<_IncomeStatementView> createState() => _IncomeStatementViewState();
@@ -172,10 +196,9 @@ class _IncomeStatementViewState extends ConsumerState<_IncomeStatementView> {
   bool _loading = false;
 
   Future<void> _load() async {
-    if (widget.fyId.isEmpty) return;
     setState(() => _loading = true);
     try {
-      final r = await ref.read(apiClientProvider).getIncomeStatement(widget.fyId);
+      final r = await ref.read(apiClientProvider).getIncomeStatement(from: widget.from, to: widget.to);
       setState(() => _data = r);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(parseError(e)), backgroundColor: AppColors.negative));
@@ -344,6 +367,36 @@ class _TafireViewState extends ConsumerState<_TafireView> {
 }
 
 // ── Widgets utilitaires ───────────────────────────────────────────────────────
+
+// ── DatePickerField réutilisable ───────────────────────────────────────────────
+
+class _DatePickerField extends StatelessWidget {
+  final String label;
+  final DateTime date;
+  final void Function(DateTime) onPicked;
+  const _DatePickerField(this.label, this.date, this.onPicked);
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () async {
+        final d = await showDatePicker(
+          context: context,
+          initialDate: date,
+          firstDate: DateTime(2020),
+          lastDate: DateTime(2035),
+        );
+        if (d != null) onPicked(d);
+      },
+      child: InputDecorator(
+        decoration: InputDecoration(labelText: label, isDense: true),
+        child: Text(date.toIso8601String().substring(0, 10), style: const TextStyle(fontSize: 13)),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _StatementSection extends StatelessWidget {
   final String title;

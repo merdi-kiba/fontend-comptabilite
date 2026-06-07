@@ -1,4 +1,5 @@
 import 'package:proxima/core/utils/error_utils.dart';
+import 'package:proxima/core/utils/formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:proxima/core/auth/auth_provider.dart';
@@ -371,9 +372,9 @@ class _BalancesDialogState extends ConsumerState<_BalancesDialog> {
               : ListView(children: _balances.map((b) {
                   final m = b as Map<String, dynamic>;
                   final type = m['type'] as String? ?? '—';
-                  final entitled = (m['entitled'] as num?)?.toDouble() ?? 0;
-                  final taken = (m['taken'] as num?)?.toDouble() ?? 0;
-                  final remaining = (m['remaining'] as num?)?.toDouble() ?? (entitled - taken);
+                  final entitled = toDouble(m['entitled']);
+                  final taken = toDouble(m['taken']);
+                  final remaining = toDouble(m['remaining']) != 0 ? toDouble(m['remaining']) : entitled - taken;
                   return ListTile(
                     dense: true,
                     title: Text(type, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),

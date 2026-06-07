@@ -169,9 +169,9 @@ class _DeclarationView extends ConsumerWidget {
       data: (data) {
         final status = data['status'] as String? ?? 'DRAFT';
         final isSubmitted = status.toUpperCase() == 'SUBMITTED';
-        final totalBase = (data['totalBase'] as num?)?.toDouble() ?? 0;
-        final totalEmp = (data['totalEmployee'] as num?)?.toDouble() ?? 0;
-        final totalEmpr = (data['totalEmployer'] as num?)?.toDouble() ?? 0;
+        final totalBase = toDouble(data['totalBase']);
+        final totalEmp = toDouble(data['totalEmployee']);
+        final totalEmpr = toDouble(data['totalEmployer']);
         final lines = data['lines'] as List? ?? [];
 
         return RefreshIndicator(
@@ -254,22 +254,22 @@ class _DeclarationView extends ConsumerWidget {
   DataRow _dataRow(Map<String, dynamic> l, String type) {
     final name = l['name'] as String? ?? '${l['firstName'] ?? ''} ${l['lastName'] ?? ''}'.trim();
     final cnss = l['cnssNumber'] as String? ?? '—';
-    final gross = (l['grossSalary'] as num?)?.toDouble() ?? 0;
+    final gross = toDouble(l['grossSalary']);
     final cells = [
       DataCell(Text(name, style: const TextStyle(fontSize: 12))),
       DataCell(Text(cnss, style: const TextStyle(fontSize: 11))),
       DataCell(Text(Fmt.compact(gross), style: const TextStyle(fontSize: 12))),
     ];
     if (type == 'CNSS') {
-      final emp = (l['cnssEmployee'] as num?)?.toDouble() ?? 0;
-      final empr = (l['cnssEmployer'] as num?)?.toDouble() ?? 0;
+      final emp = toDouble(l['cnssEmployee']);
+      final empr = toDouble(l['cnssEmployer']);
       cells.add(DataCell(Text(Fmt.compact(emp), style: const TextStyle(fontSize: 12))));
       cells.add(DataCell(Text(Fmt.compact(empr), style: const TextStyle(fontSize: 12))));
     } else if (type == 'ONEM') {
-      final onem = (l['onem'] as num?)?.toDouble() ?? (l['onemEmployer'] as num?)?.toDouble() ?? 0;
+      final onem = toDouble(l['onem']) != 0 ? toDouble(l['onem']) : toDouble(l['onemEmployer']);
       cells.add(DataCell(Text(Fmt.compact(onem), style: const TextStyle(fontSize: 12))));
     } else {
-      final ipr = (l['ipr'] as num?)?.toDouble() ?? 0;
+      final ipr = toDouble(l['ipr']);
       cells.add(DataCell(Text(Fmt.compact(ipr), style: const TextStyle(fontSize: 12))));
     }
     return DataRow(cells: cells);
